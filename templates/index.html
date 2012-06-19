@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+<head>
+
+	<!-- Basic Page Needs
+  ================================================== -->
+	<meta charset="utf-8">
+	<title>Bus Me Around</title>
+	<meta name="description" content="">
+	<meta name="author" content="">
+
+	<!-- Mobile Specific Metas
+  ================================================== -->
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<!-- CSS
+  ================================================== -->
+	<link rel="stylesheet" href="static/base.css">
+	<link rel="stylesheet" href="static/skeleton.css">
+	<link rel="stylesheet" href="static/layout.css">
+
+	<!--[if lt IE 9]>
+		<script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+	<![endif]-->
+
+	<!-- Favicons
+	================================================== -->
+	<link rel="shortcut icon" href="static/favicon.ico">
+	<link rel="apple-touch-icon" href="static/apple-touch-icon.png">
+	<link rel="apple-touch-icon" sizes="72x72" href="static/apple-touch-icon-72x72.png">
+	<link rel="apple-touch-icon" sizes="114x114" href="static/apple-touch-icon-114x114.png">
+
+	<!-- JS
+	================================================== -->
+	<script src="http://code.jquery.com/jquery-1.7.2.min.js"></script>
+  <script src="static/ICanHaz.min.js"></script>
+  <script src="static/moment.min.js"></script>
+	<script src="static/tabs.js"></script>
+
+  <script id="bus_arrival" type="text/html">
+    <div class="one-third column">
+      <h3>{{ name }} to {{ destination }}</h3>
+      <p>Arriving {{ eta }} ({{ time }}) at {{ stop }}</p>
+    </div>
+  </script>
+  <script>
+    $(function () {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(havePosition, error);
+      } else {
+        error ("Sorry, geolocation isn't supported on your device");
+      }
+    });
+    var havePosition = function(position) {
+      lat = position.coords.latitude;
+      long = position.coords.longitude;
+
+      $.getJSON("/buses-near/" + lat + "/" + long, function(data) {
+        buses = data['buses'];
+        stops = data['stops'];
+        $("#buses").empty();
+
+        $.each(buses, function(i, bus) {
+          arrival_time = moment(bus['unixtime']);
+          bus['time'] = arrival_time.format('h:mma');
+          bus['eta'] = arrival_time.fromNow();
+
+          $("#buses").append(ich.bus_arrival(bus));
+        });
+      })
+    };
+    var error = function(msg) {
+      alert(msg);
+    }
+  </script>
+
+</head>
+<body>
+
+	<!-- Primary Page Layout
+	================================================== -->
+
+	<div class="container">
+		<div class="sixteen columns">
+			<h1 class="remove-bottom" style="margin-top: 40px">Bus Me Around</h1>
+			<hr />
+		</div>
+    <div id="buses">
+    </div>
+		<div class="sixteen columns">
+      <p><em>Bus Me Around came from the loins of <a href='http://tim-perry.co.uk'>Tim Perry</a>.
+             Don't tell him how good it is, he's cocky enough already.</em></p>
+		</div>
+
+	</div>
+
+<!-- End Document
+================================================== -->
+</body>
+</html>
