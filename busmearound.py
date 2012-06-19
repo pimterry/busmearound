@@ -10,45 +10,56 @@ def index():
   return open('templates/index.html', 'r').read()
 
 @app.route('/buses-near/<lat>/<long>')
-def buses_near(lat, long, range_in_meters=500):
+def bus_data_near(lat, long, range_in_meters=300):
   """
-  Takes a latitude and a longitude and tells you when and where the next buses are arriving
+  Takes a latitude and a longitude and tells you when and where the next bus_data are arriving
   in the surrounding 100 meters.
   """
   interesting_fields = ['StopPointName',
-                        'LineName',
+                        'StopID',
                         'Towards',
-                        'EstimatedTime',
                         'Latitude',
-                        'Longitude']
+                        'Longitude',
+                        'VehicleID',
+                        'LineName',
+                        'EstimatedTime']
 
   params = { 'Circle' : '%s,%s,%s' % (lat, long, range_in_meters),
              'ReturnList' : ','.join(interesting_fields) }
 
   r = requests.get('http://countdown.api.tfl.gov.uk/interfaces/ura/instant_V1',
                    params = params)
+
   data = [json.loads(line) for line in r.text.split('\n')]
   bus_data = [line for line in data if line[0] == 1]
 
-  buses = []
+  buses = {}
   stops = {}
 
-  for msg_type, stop, towards, stop_lat, stop_long, bus, time in bus_data:
+  for msg_type, stop_name, stop_id, towards, stop_lat, stop_long, bus_name, bus_id, time in bus_data:
     if msg_type != 1:
       continue
 
-    # TODO: Instead, store once for each bus (get bus ids), only return closest
-    # stop that bus is going through
+    distance = distanceBetween((lat, long), (stop_lat, stop_long))
 
-    buses.append({ 'name' : bus,
-                   'destination' : towards,
-                   'unixtime' : time,
-                   'stop' : stop })
+    if stop_id not in stops:
+      stops[stop_id] = { 'name' : stop_name,
+                        'lat' : stop_lat,
+                        'long' : stop_long,
+                        'distance' : distance }
 
-    stops[stop] = (stop_lat, stop_long)
+    if bus_id not in buses or distance < stops[buses[bus_id]['stop_id']]['distance']:
+      buses[bus_id] = { 'name' : bus_name,
+                       'destination' : towards,
+                       'unixtime' : time,
+                       'stop_id' : stop_id,
+                       'distance_to_stop' : distance }
 
-  return json.dumps({ 'buses' : sorted(buses, key = lambda b : b['unixtime']),
+  return json.dumps({ 'buses' : sorted(buses.values(), key = lambda b : b['unixtime']),
                       'stops' : stops})
+
+def distanceBetween(start, end):
+  return 1
 
 if __name__ == "__main__":
   app.debug = True

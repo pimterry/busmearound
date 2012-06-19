@@ -64,9 +64,10 @@
         $("#buses").empty();
 
         $.each(buses, function(i, bus) {
-          arrival_time = moment(bus['unixtime']);
-          bus['time'] = arrival_time.format('h:mma');
-          bus['eta'] = arrival_time.fromNow();
+          arrival_time = moment(bus.unixtime);
+          bus.time = arrival_time.format('h:mma');
+          bus.eta = arrival_time.fromNow();
+          bus.stop = stops[bus.stop_id].name
 
           $("#buses").append(ich.bus_arrival(bus));
         });
