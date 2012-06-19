@@ -1,6 +1,6 @@
 from flask import Flask, render_template
 from datetime import datetime
-import json, requests
+import json, requests, os
 
 app = Flask(__name__)
 
@@ -52,4 +52,5 @@ def buses_near(lat, long, range_in_meters=500):
 
 if __name__ == "__main__":
   app.debug = True
-  app.run()
+  port = int(os.environ.get('PORT', 5000))
+  app.run(host='0.0.0.0', port=port)
