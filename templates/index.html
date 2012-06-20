@@ -64,8 +64,8 @@
         <h3>{{ name }} to {{ destination }}</h3>
           <p>Arriving {{ eta }} ({{ time }}) at {{ stop }}</p>
           <p>
-            <a href="http://maps.google.com/?q={{lat}},{{long}}&z=15" class="nice small radius medium button">
-              Where? »
+            <a href="http://maps.google.co.uk/?q={{lat}},{{long}}&z=15" class="nice radius medium button">
+              Show Me »
             </a>
           </p>
       </div>
@@ -73,6 +73,9 @@
 
   <script>
     $(function () {
+      // Fix for one of the relative strings when displaying times
+      moment.relativeTime.m = "1 minute";
+
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(havePosition, error);
       } else {
