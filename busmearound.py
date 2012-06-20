@@ -44,7 +44,9 @@ def bus_data_near(lat, long, range_in_meters=300):
     distance = distance_between((lat, long), (stop_lat, stop_long))
 
     if stop_id not in stops:
-      stops[stop_id] = { 'name' : "%s (Stop %s)" % (stop_name, stop_indicator),
+      if stop_indicator:
+        stop_name = "%s (Stop %s)" % (stop_name, stop_indicator)
+      stops[stop_id] = { 'name' : stop_name,
                          'lat' : stop_lat,
                          'long' : stop_long,
                          'distance' : distance }
