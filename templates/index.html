@@ -122,6 +122,12 @@
       bus_panel.data('bus', bus_data);
       bus_panel.click(closeBusPanel);
 
+      // Need to stop us closing the panel when we hit the show map link
+      // (so if you go back to the browser in android, the panel's still open)
+      bus_panel.find('a').click(function(e) {
+        e.stopPropagation();
+      })
+
       $(this).replaceWith(bus_panel);
     }
 
