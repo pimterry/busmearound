@@ -1,6 +1,7 @@
 from flask import Flask, render_template
 from datetime import datetime
 import json, requests, os
+from geopy import distance
 
 app = Flask(__name__)
 
@@ -17,11 +18,12 @@ def bus_data_near(lat, long, range_in_meters=300):
   """
   interesting_fields = ['StopPointName',
                         'StopID',
-                        'Towards',
+                        'StopPointIndicator',
                         'Latitude',
                         'Longitude',
-                        'VehicleID',
                         'LineName',
+                        'DestinationText',
+                        'VehicleID',
                         'EstimatedTime']
 
   params = { 'Circle' : '%s,%s,%s' % (lat, long, range_in_meters),
@@ -36,21 +38,21 @@ def bus_data_near(lat, long, range_in_meters=300):
   buses = {}
   stops = {}
 
-  for msg_type, stop_name, stop_id, towards, stop_lat, stop_long, bus_name, bus_id, time in bus_data:
+  for msg_type, stop_name, stop_id, stop_indicator, stop_lat, stop_long, bus_name, destination, bus_id, time in bus_data:
     if msg_type != 1:
       continue
 
-    distance = distanceBetween((lat, long), (stop_lat, stop_long))
+    distance = distance_between((lat, long), (stop_lat, stop_long))
 
     if stop_id not in stops:
-      stops[stop_id] = { 'name' : stop_name,
-                        'lat' : stop_lat,
-                        'long' : stop_long,
-                        'distance' : distance }
+      stops[stop_id] = { 'name' : "%s (Stop %s)" % (stop_name, stop_indicator),
+                         'lat' : stop_lat,
+                         'long' : stop_long,
+                         'distance' : distance }
 
     if bus_id not in buses or distance < stops[buses[bus_id]['stop_id']]['distance']:
       buses[bus_id] = { 'name' : bus_name,
-                       'destination' : towards,
+                       'destination' : destination,
                        'unixtime' : time,
                        'stop_id' : stop_id,
                        'distance_to_stop' : distance }
@@ -58,8 +60,8 @@ def bus_data_near(lat, long, range_in_meters=300):
   return json.dumps({ 'buses' : sorted(buses.values(), key = lambda b : b['unixtime']),
                       'stops' : stops})
 
-def distanceBetween(start, end):
-  return 1
+def distance_between(start, end):
+  return distance.distance(start, end).meters
 
 if __name__ == "__main__":
   app.debug = True

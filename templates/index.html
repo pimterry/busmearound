@@ -1,51 +1,65 @@
 <!DOCTYPE html>
-<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
-<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
-<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
-<!--[if (gte IE 9)|!(IE)]><!--><html lang="en"> <!--<![endif]-->
+
+<!-- paulirish.com/2008/conditional-style-vs-css-hacks-answer-neither/ -->
+<!--[if lt IE 7]> <html class="no-js lt-ie9 lt-ie8 lt-ie7" lang="en"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js lt-ie9 lt-ie8" lang="en"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js lt-ie9" lang="en"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en"> <!--<![endif]-->
 <head>
+	<meta charset="utf-8" />
 
-	<!-- Basic Page Needs
-  ================================================== -->
-	<meta charset="utf-8">
+	<!-- Set the viewport width to device width for mobile -->
+	<meta name="viewport" content="width=device-width" />
+
 	<title>Bus Me Around</title>
-	<meta name="description" content="">
-	<meta name="author" content="">
 
-	<!-- Mobile Specific Metas
-  ================================================== -->
-	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+	<!-- Included CSS Files -->
+	<link rel="stylesheet" href="/static/styles/foundation.css">
+	<link rel="stylesheet" href="/static/styles/app.css">
 
-	<!-- CSS
-  ================================================== -->
-	<link rel="stylesheet" href="static/base.css">
-	<link rel="stylesheet" href="static/skeleton.css">
-	<link rel="stylesheet" href="static/layout.css">
+  <style>
+    @font-face {
+      font-family: 'Franchise';
+      src: url('/static/fonts/franchise.ttf');
+      font-weight: bold;
+      font-style: normal;
+    }
+
+    h1 {
+      font-size: 60pt;
+      font-family: 'Franchise';
+    }
+
+    p {
+      font-family: 'Georgia', serif;
+    }
+  </style>
 
 	<!--[if lt IE 9]>
-		<script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+		<link rel="stylesheet" href="/static/styles/ie.css">
 	<![endif]-->
 
-	<!-- Favicons
-	================================================== -->
-	<link rel="shortcut icon" href="static/favicon.ico">
-	<link rel="apple-touch-icon" href="static/apple-touch-icon.png">
-	<link rel="apple-touch-icon" sizes="72x72" href="static/apple-touch-icon-72x72.png">
-	<link rel="apple-touch-icon" sizes="114x114" href="static/apple-touch-icon-114x114.png">
+	<script src="/static/scripts/modernizr.foundation.js"></script>
 
-	<!-- JS
-	================================================== -->
-	<script src="http://code.jquery.com/jquery-1.7.2.min.js"></script>
-  <script src="static/ICanHaz.min.js"></script>
-  <script src="static/moment.min.js"></script>
-	<script src="static/tabs.js"></script>
+	<!-- IE Fix for HTML5 Tags -->
+	<!--[if lt IE 9]>
+		<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+	<![endif]-->
+
+	<!-- Included JS Files -->
+	<script src="/static/scripts/jquery.min.js"></script>
+	<script src="/static/scripts/foundation.js"></script>
+  <script src="/static/scripts/app.js"></script>
+  <script src="/static/scripts/ICanHaz.min.js"></script>
+  <script src="/static/scripts/moment.min.js"></script>
 
   <script id="bus_arrival" type="text/html">
-    <div class="one-third column">
+      <li>
       <h3>{{ name }} to {{ destination }}</h3>
-      <p>Arriving {{ eta }} ({{ time }}) at {{ stop }}</p>
-    </div>
+        <p>Arriving {{ eta }} ({{ time }}) at {{ stop }}</p>
+      </li>
   </script>
+
   <script>
     $(function () {
       if (navigator.geolocation) {
@@ -69,7 +83,9 @@
           bus.eta = arrival_time.fromNow();
           bus.stop = stops[bus.stop_id].name
 
-          $("#buses").append(ich.bus_arrival(bus));
+          bus_html = ich.bus_arrival(bus);
+          if (i % 3 == 0) bus_html.css('clear', 'both');
+          $("#buses").append(bus_html);
         });
       })
     };
@@ -81,23 +97,33 @@
 </head>
 <body>
 
-	<!-- Primary Page Layout
-	================================================== -->
-
 	<div class="container">
-		<div class="sixteen columns">
-			<h1 class="remove-bottom" style="margin-top: 40px">Bus Me Around</h1>
-			<hr />
-		</div>
-    <div id="buses">
+
+		<div class="row">
+			<div class="twelve columns">
+				<h1>Bus Me Around</h1>
+				<hr />
+			</div>
     </div>
-		<div class="sixteen columns">
-      <p><em>Bus Me Around came from the loins of <a href='http://tim-perry.co.uk'>Tim Perry</a>. Delightful.</em></p>
-		</div>
+
+    <div class="row">
+      <div class="twelve columns">
+
+        <ul id="buses" class="block-grid three-up mobile" style="margin-bottom: 0">
+        </ul>
+
+      </div>
+    </div>
+
+    <div class="row">
+      <hr/>
+
+      <div class="twelve columns">
+        <p style='float: right'><em>Bus Me Around was thrown into this big scary world by <a href='http://tim-perry.co.uk'>Tim Perry</a>. What a guy.</em></p>
+      </div>
+    </div>
 
 	</div>
 
-<!-- End Document
-================================================== -->
 </body>
 </html>
