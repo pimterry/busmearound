@@ -55,9 +55,20 @@
 
   <script id="bus_arrival" type="text/html">
       <li>
-      <h3>{{ name }} to {{ destination }}</h3>
-        <p>Arriving {{ eta }} ({{ time }}) at {{ stop }}</p>
+        <h3>{{ name }} to {{ destination }}</h3>
+          <p>Arriving {{ eta }} ({{ time }}) at {{ stop }}</p>
       </li>
+  </script>
+  <script id="bus_panel" type="text/html">
+      <div class="twelve columns panel">
+        <h3>{{ name }} to {{ destination }}</h3>
+          <p>Arriving {{ eta }} ({{ time }}) at {{ stop }}</p>
+          <p>
+            <a href="http://maps.google.com/?q={{lat}},{{long}}&z=15" class="nice small radius medium button">
+              Where? »
+            </a>
+          </p>
+      </div>
   </script>
 
   <script>
@@ -68,6 +79,7 @@
         error ("Sorry, geolocation isn't supported on your device");
       }
     });
+
     var havePosition = function(position) {
       lat = position.coords.latitude;
       long = position.coords.longitude;
@@ -81,16 +93,42 @@
           arrival_time = moment(bus.unixtime);
           bus.time = arrival_time.format('h:mma');
           bus.eta = arrival_time.fromNow();
-          bus.stop = stops[bus.stop_id].name
+          stop = stops[bus.stop_id]
+          bus.stop = stop.name;
+          bus.lat = stop.lat
+          bus.long = stop.long
+          bus.distance_to_stop = Math.round(bus.distance_to_stop);
 
           bus_html = ich.bus_arrival(bus);
           if (i % 3 == 0) bus_html.css('clear', 'both');
+          bus_html.data('bus', bus);
+          bus_html.click(openBusPanel);
+
           $("#buses").append(bus_html);
         });
       })
     };
+    
     var error = function(msg) {
       alert(msg);
+    }
+
+    var openBusPanel = function() {
+      bus_data = $(this).data('bus');
+      bus_panel = ich.bus_panel(bus_data);
+      bus_panel.data('bus', bus_data);
+      bus_panel.click(closeBusPanel);
+
+      $(this).replaceWith(bus_panel);
+    }
+
+    var closeBusPanel = function() {
+      bus_data = $(this).data('bus');
+      bus_arrival = ich.bus_arrival(bus_data);
+      bus_arrival.data('bus', bus_data);
+      bus_arrival.click(openBusPanel);
+
+      $(this).replaceWith(bus_arrival);
     }
   </script>
 
