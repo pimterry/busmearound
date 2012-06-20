@@ -33,6 +33,10 @@
     p {
       font-family: 'Georgia', serif;
     }
+
+    .clickable {
+      cursor: pointer;
+    }
   </style>
 
 	<!--[if lt IE 9]>
@@ -54,13 +58,13 @@
   <script src="/static/scripts/moment.min.js"></script>
 
   <script id="bus_arrival" type="text/html">
-      <li>
+      <li class="clickable">
         <h3>{{ name }} to {{ destination }}</h3>
           <p>Arriving {{ eta }} ({{ time }}) at {{ stop }}</p>
       </li>
   </script>
   <script id="bus_panel" type="text/html">
-      <div class="twelve columns panel">
+      <div class="twelve columns panel clickable">
         <h3>{{ name }} to {{ destination }}</h3>
           <p>Arriving {{ eta }} ({{ time }}) at {{ stop }}</p>
           <p>
