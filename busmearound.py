@@ -1,6 +1,6 @@
 from flask import Flask, render_template
 from datetime import datetime
-import json, requests, os
+import json, requests, os, time
 from geopy import distance
 
 app = Flask(__name__)
@@ -13,7 +13,7 @@ def index():
 @app.route('/buses-near/<lat>/<long>')
 def bus_data_near(lat, long, range_in_meters=300):
   """
-  Takes a latitude and a longitude and tells you when and where the next bus_data are arriving
+  Takes a latitude and a longitude and tells you when and where the next buses are arriving
   in the surrounding 100 meters.
   """
   interesting_fields = ['StopPointName',
@@ -38,10 +38,9 @@ def bus_data_near(lat, long, range_in_meters=300):
   buses = {}
   stops = {}
 
-  for msg_type, stop_name, stop_id, stop_indicator, stop_lat, stop_long, bus_name, destination, bus_id, time in bus_data:
-    if msg_type != 1:
-      continue
+  now = time.time() - 60
 
+  for msg_type, stop_name, stop_id, stop_indicator, stop_lat, stop_long, bus_name, destination, bus_id, time_millis in bus_data:
     distance = distance_between((lat, long), (stop_lat, stop_long))
 
     if stop_id not in stops:
@@ -50,14 +49,18 @@ def bus_data_near(lat, long, range_in_meters=300):
                          'long' : stop_long,
                          'distance' : distance }
 
+    # Skip any stops you probably couldn't get to in time
+    if (time_millis/1000 - distance/2) < now:
+      continue
+
     if bus_id not in buses or distance < stops[buses[bus_id]['stop_id']]['distance']:
       buses[bus_id] = { 'name' : bus_name,
                        'destination' : destination,
-                       'unixtime' : time,
+                       'time_millis' : time_millis,
                        'stop_id' : stop_id,
                        'distance_to_stop' : distance }
 
-  return json.dumps({ 'buses' : sorted(buses.values(), key = lambda b : b['unixtime']),
+  return json.dumps({ 'buses' : sorted(buses.values(), key = lambda b : b['time_millis']),
                       'stops' : stops})
 
 def distance_between(start, end):

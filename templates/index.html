@@ -26,7 +26,7 @@
     }
 
     h1 {
-      font-size: 60pt;
+      font-size: 4em;
       font-family: 'Franchise';
     }
 
@@ -97,7 +97,7 @@
         $("#buses").empty();
 
         $.each(buses, function(i, bus) {
-          arrival_time = moment(bus.unixtime);
+          arrival_time = moment(bus.time_millis);
           bus.time = arrival_time.format('h:mma');
           bus.eta = arrival_time.fromNow();
           stop = stops[bus.stop_id]
