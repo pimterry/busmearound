@@ -14,8 +14,8 @@
 	<title>Bus Me Around</title>
 
 	<!-- Included CSS Files -->
-	<link rel="stylesheet" href="/static/styles/foundation.css">
-	<link rel="stylesheet" href="/static/styles/app.css">
+	<link rel="stylesheet" href="/static/styles/foundation.css" />
+	<link rel="stylesheet" href="/static/styles/app.css" />
 
   <style>
     @font-face {
@@ -34,8 +34,17 @@
       font-family: 'Georgia', serif;
     }
 
+    #loading {
+      text-align: center;
+    }
+
     .clickable {
       cursor: pointer;
+    }
+
+    .panel {
+      border: 1px solid #aaa;
+      border-radius: 5px;
     }
   </style>
 
@@ -51,7 +60,8 @@
 	<![endif]-->
 
 	<!-- Included JS Files -->
-	<script src="/static/scripts/jquery.min.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+
 	<script src="/static/scripts/foundation.js"></script>
   <script src="/static/scripts/app.js"></script>
   <script src="/static/scripts/ICanHaz.min.js"></script>
@@ -59,13 +69,16 @@
 
   <script id="bus_arrival" type="text/html">
       <li class="clickable">
-        <h3>{{ name }} to {{ destination }}</h3>
-          <p>Arriving {{ eta }} ({{ time }}) at {{ stop }}</p>
+        <h4>
+          + {{ name }} to {{ destination }}
+        </h4>
+        <p>Arriving {{ eta }} ({{ time }}) at {{ stop }}</p>
       </li>
   </script>
   <script id="bus_panel" type="text/html">
-      <div class="twelve columns panel clickable">
-        <h3>{{ name }} to {{ destination }}</h3>
+      <div class="twelve columns panel clickable" >
+        <h3>
+          {{ name }} to {{ destination }}</h3>
           <p>Arriving {{ eta }} ({{ time }}) at {{ stop }}</p>
           <p>
             <a href="http://maps.google.co.uk/?q={{lat}},{{long}}&z=15" class="nice radius medium button">
@@ -80,18 +93,29 @@
       // Fix for one of the relative strings when displaying times
       moment.relativeTime.m = "1 minute";
 
+      // Show loading messages when during ajax loads
+      $.ajaxSetup({
+        beforeSend: function() {
+          setStatusMessage("Loading data...");
+        },
+        complete: clearStatusMessage,
+        success: function() {}
+      });
+
       if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(havePosition, error);
+        setStatusMessage("Finding your location...");
+        navigator.geolocation.getCurrentPosition(positionFound, error);
       } else {
-        error ("Sorry, geolocation isn't supported on your device");
+        setStatusMessage("Sorry, geolocation isn't supported on your device");
       }
     });
 
-    var havePosition = function(position) {
+    function positionFound(position) {
       lat = position.coords.latitude;
       long = position.coords.longitude;
 
       $.getJSON("/buses-near/" + lat + "/" + long, function(data) {
+        clearStatusMessage();
         buses = data['buses'];
         stops = data['stops'];
         $("#buses").empty();
@@ -116,11 +140,11 @@
       })
     };
     
-    var error = function(msg) {
-      alert(msg);
+    function error() {
+      setStatusMessage("Sorry, an error occurred.");
     }
 
-    var openBusPanel = function() {
+    function openBusPanel() {
       bus_data = $(this).data('bus');
       bus_panel = ich.bus_panel(bus_data);
       bus_panel.data('bus', bus_data);
@@ -135,7 +159,7 @@
       $(this).replaceWith(bus_panel);
     }
 
-    var closeBusPanel = function() {
+    function closeBusPanel() {
       bus_data = $(this).data('bus');
       bus_arrival = ich.bus_arrival(bus_data);
       bus_arrival.data('bus', bus_data);
@@ -143,6 +167,17 @@
 
       $(this).replaceWith(bus_arrival);
     }
+
+    function setStatusMessage(msg) {
+      $('#loading').html(msg);
+      $('#loading').show();
+    }
+
+    function clearStatusMessage() {
+      $('#loading').hide();
+      $('#loading').html('');
+    }
+
   </script>
 
 </head>
@@ -155,6 +190,13 @@
 				<h1>Bus Me Around</h1>
 				<hr />
 			</div>
+    </div>
+
+    <div class="row">
+      <div class="twelve columns">
+        <div class="alert-box" id="loading" style="display: none;">
+        </div>
+      </div>
     </div>
 
     <div class="row">
