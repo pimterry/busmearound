@@ -11,7 +11,7 @@ def index():
   return open('templates/index.html', 'r').read()
 
 @app.route('/buses-near/<lat>/<long>')
-def bus_data_near(lat, long, range_in_meters=300):
+def bus_data_near(lat, long, range_in_meters=1000):
   """
   Takes a latitude and a longitude and tells you when and where the next buses are arriving
   in the surrounding 100 meters.
