@@ -10,6 +10,11 @@ def index():
   # TODO: Do this properly silly (problems with js templating in the the template otherwise)
   return open('templates/index.html', 'r').read()
 
+def getTransportNear(start, range_in_meters=500, target=None):
+  for stop in bus_stops:
+    pass
+
+
 @app.route('/buses-near/<lat>/<long>')
 def bus_data_near(lat, long, range_in_meters=1000):
   """

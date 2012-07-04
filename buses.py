@@ -1,10 +1,11 @@
 from geopy import distance
 from collections import defaultdict
-import requests, json, os, time, bisect
+import requests, json, os, time, bisect, math
 
 distance.distance = distance.GreatCircleDistance
 
 INSTANT_BUS_FEED = 'http://countdown.api.tfl.gov.uk/interfaces/ura/instant_V1'
+STREAM_BUS_FEED = 'http://countdown.api.tfl.gov.uk/interfaces/ura/stream_V1'
 RELEVANT_BUS_STOP_TYPES = ['STBR', 'STBC', 'STZZ', 'STBS', 'STSS']
 
 class BusStop(object):
@@ -18,6 +19,9 @@ class BusStop(object):
 
   def distanceTo(location):
     return distance.distance(self.location, location).meters
+
+  def __str__(self):
+    return "%s %s (%s)" % (self.name, self.indicator or "-", self.location)
 
 class DistancedBusStop(object):
   """
@@ -35,6 +39,9 @@ class DistancedBusStop(object):
 
   def __cmp__(self, other):
     return cmp(self.distance, other.distance)
+
+  def __str__(self):
+    return "%s - %s meters away" % (self.bus_stop, self.distance)
 
 class Bus(object):
   __slots__ = 'bus_id', 'name', 'destination'
@@ -54,8 +61,7 @@ class BusStops(object):
   cell_height = (max_long - min_long) / grid_height
 
   def __init__(self):
-    self.stop_grid = defaultdict(lambda : defaultdict(list))
-    self.stops = {}
+    self._reset_stop_data()
 
   def _refresh(self):
     fields = ['StopID',
@@ -79,15 +85,24 @@ class BusStops(object):
     self.stops = {}
 
     for msg_type, name, stop_id, stop_type, indicator, lat, long in stops_data:
-      if stop_type not in RELEVANT_BUS_STOP_TYPES:
-        continue
+      self._process_stop_data(name, stop_id, stop_type, indicator, lat, long)
 
-      location = (lat, long)
-      stop = BusStop(stop_id, name, indicator, location)
+  def _stream(self):
+    pass
 
-      self.stops[stop_id] = stop
-      self.get_cell(location).append(stop)
+  def _reset_stop_data(self):
+    self.stop_grid = defaultdict(lambda : defaultdict(list))
+    self.stops = {}
 
+  def _process_stop_data(self, name, stop_id, stop_type, indicator, lat, long):
+    if stop_type not in RELEVANT_BUS_STOP_TYPES:
+      return
+
+    location = (lat, long)
+    stop = BusStop(stop_id, name, indicator, location)
+
+    self.stops[stop_id] = stop
+    self.get_cell(location).append(stop)
 
   def get_cell(self, (lat, long)):
     """
@@ -125,16 +140,11 @@ class BusStops(object):
         lat = x * self.cell_width + self.min_lat
         long = y * self.cell_height + self.min_long
 
-        corners = ((lat, long),
-                   (lat + self.cell_width, long),
-                   (lat, long + self.cell_height),
-                   (lat + self.cell_width, long + self.cell_height))
-        corner_radius = distance.distance(corners[0], corners[3]).meters/2
+        cell_centre = (lat + self.cell_width/2, long + self.cell_height/2)
+        cell_radius = distance.distance((cell_centre), (lat, long)).meters
 
-        for corner in corners:
-          if distance.distance(corner, location).meters <= max(corner_radius, distance_in_meters):
-            relevant_stops += self.stop_grid[x][y]
-            break
+        if distance.distance(cell_centre, location).meters <= cell_radius + distance_in_meters:
+          relevant_stops += self.stop_grid[x][y]
 
     return relevant_stops
 
@@ -176,3 +186,4 @@ class Buses(object):
 
 if __name__ == "__main__":
   bus_stops = BusStops()
+  bus_stops._refresh()
