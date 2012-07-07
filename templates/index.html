@@ -104,7 +104,7 @@
 
       if (navigator.geolocation) {
         setStatusMessage("Finding your location...");
-        navigator.geolocation.getCurrentPosition(positionFound, error);
+        navigator.geolocation.getCurrentPosition(positionFound, error, { enableHighAccuracy: true });
       } else {
         setStatusMessage("Sorry, geolocation isn't supported on your device");
       }
