@@ -5,7 +5,11 @@ import requests, json, os, time, bisect, math
 distance.distance = distance.GreatCircleDistance
 
 INSTANT_BUS_FEED = 'http://countdown.api.tfl.gov.uk/interfaces/ura/instant_V1'
+
 STREAM_BUS_FEED = 'http://countdown.api.tfl.gov.uk/interfaces/ura/stream_V1'
+STREAM_USERNAME = os.getenv('tfl-bus-stream-username')
+STREAM_PASSWORD = os.getenv('tfl-bus-stream-password')
+
 RELEVANT_BUS_STOP_TYPES = ['STBR', 'STBC', 'STZZ', 'STBS', 'STSS']
 
 class BusStop(object):
@@ -52,7 +56,7 @@ class Bus(object):
     self.destination = destination
 
 class BusStops(object):
-  grid_width = grid_height = 10.0
+  grid_width = grid_height = 50.0
   min_lat = 51.2
   max_lat = 51.8
   min_long = -0.6
@@ -60,17 +64,25 @@ class BusStops(object):
   cell_width = (max_lat - min_lat) / grid_width
   cell_height = (max_long - min_long) / grid_height
 
+  bus_stop_fields = ['StopID',
+                     'StopPointName',
+                     'StopPointType',
+                     'StopPointIndicator',
+                     'Latitude',
+                     'Longitude']
+
+  bus_prediction_fields = ['StopID',
+                           'LineName',
+                           'DestinationText',
+                           'Destination',
+                           'VehicleID',
+                           'EstimatedTime']
+
   def __init__(self):
     self._reset_stop_data()
 
   def _refresh(self):
-    fields = ['StopID',
-              'StopPointName',
-              'StopPointType',
-              'StopPointIndicator',
-              'Latitude',
-              'Longitude']
-    params = { 'ReturnList' : ','.join(fields),
+    params = { 'ReturnList' : ','.join(self.bus_stop_fields),
                'StopAlso' : 'True' }
 
     r = requests.get(INSTANT_BUS_FEED, params = params)
@@ -81,14 +93,42 @@ class BusStops(object):
     stops_data = [json.loads(line) for line in r.text.split('\n')]
     URA_header = stops_data.pop(0)
 
-    self.stop_grid = defaultdict(lambda : defaultdict(list))
-    self.stops = {}
+    self._reset_stop_data()
 
     for msg_type, name, stop_id, stop_type, indicator, lat, long in stops_data:
       self._process_stop_data(name, stop_id, stop_type, indicator, lat, long)
 
-  def _stream(self):
-    pass
+  def _stream_predictions(self):
+    params = { 'ReturnList' : ','.join(self.bus_prediction_fields),
+               'Stream' : 'True' }
+    r = requests.get(STREAM_BUS_FEED,
+                     params = params,
+                     auth = (STREAM_USERNAME, STREAM_PASSWORD))
+
+    if r.status_code != 200:
+      raise Exception("Could not get bus prediction stream: %s" % r.text)
+
+    for line in r.iter_lines():
+      if not line:
+        continue
+
+      line_data = json.loads(line)
+
+      # Only look at prediction results (ignore version rows, etc)
+      if line_data.pop(0) != 1:
+        continue
+
+      stop_id, bus_name, destination, bus_id, arrival_time, expiry_time = line_data
+
+      if stop_id not in self.stops:
+        continue
+
+      if expiry_time == 0:
+        del self.stops[bus_id]
+
+      else:
+        self._process_prediction_data(self, stop_id, bus_name, destination, bus_id, arrival_time)
+
 
   def _reset_stop_data(self):
     self.stop_grid = defaultdict(lambda : defaultdict(list))
@@ -103,6 +143,12 @@ class BusStops(object):
 
     self.stops[stop_id] = stop
     self.get_cell(location).append(stop)
+
+  def _process_prediction_data(self, stop_id, bus_name, destination, bus_id, time_millis):
+    if stop_id not in self.stops:
+      return
+
+    self.stops[stop_id].buses = []
 
   def get_cell(self, (lat, long)):
     """
@@ -130,8 +176,9 @@ class BusStops(object):
     >>> b.get_cell((51.1, -0.1)).append(2)
     >>> b.get_cell((51.5, -0.1)).append(3)
     >>> b.get_cell((51.1, -0.11)).append(4)
+    >>> b.get_cell((51.1, -0.101)).append(5)
     >>> b._get_stops_near((51.1, -0.1), 50)
-    [1, 2, 4]
+    [1, 2, 5]
     """
     relevant_stops = []
 
@@ -158,7 +205,7 @@ class BusStops(object):
     return self.stops[key]
 
   def __iter__(self):
-    return self.stops.__iter__()
+    return self.stops.values().__iter__()
 
   def __len__(self):
     return len(self.stops)
@@ -166,17 +213,26 @@ class BusStops(object):
 class LocalBusStops(object):
 
   def __init__(self, all_stops, location, max_distance_in_meters):
-    start = time.time()
+    """
+    Sets up a collection of local bus stops: filtering all_stops and including
+    every stop within max_distance of location indexed by id in .stops, and
+    provided in sorted order in .sorted_stops.
+    """
     self.location = location
-    self.stops = []
+    self.stops = {}
+    self.sorted_stops = []
 
     for stop in all_stops:
       stop_distance = distance.distance(location, stop.location).meters
       if stop_distance <= max_distance_in_meters:
-        bisect.insort(self.stops, DistancedBusStop(stop, stop_distance))
+        bisect.insort(self.sorted_stops, DistancedBusStop(stop, stop_distance))
+        self.stops[stop.stop_id] = stop
 
   def __iter__(self):
-    pass
+    return self.sorted_stops.__iter__()
+
+  def __len__(self):
+    return len(self.sorted_stops)
 
 
 class Buses(object):
@@ -185,5 +241,5 @@ class Buses(object):
 
 
 if __name__ == "__main__":
-  bus_stops = BusStops()
-  bus_stops._refresh()
+  import doctest
+  doctest.testmod(verbose=True)
