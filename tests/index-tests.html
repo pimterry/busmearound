@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <script src="http://code.jquery.com/jquery-latest.js"></script>
+  <link rel="stylesheet" href="http://code.jquery.com/qunit/git/qunit.css" type="text/css" media="screen" />
+  <script type="text/javascript" src="http://code.jquery.com/qunit/git/qunit.js"></script>
+  <script type="text/javascript" src="../static/scripts/index.js"></script>
+
+  <script>
+  $(document).ready(function(){
+    module("Position Data Validity", { setup: function() {
+      this.datasource = new TravelDataSource();
+    }});
+
+    test("First position data is useful", function() {
+      newPosition = {
+        'timestamp' : 0,
+        'coords' : {'accuracy' : 1}
+      };
+      var result = this.datasource.isPositionDataUseful(newPosition)
+      ok(result);
+    });
+
+    test("More accurate position data is useful", function() {
+      this.datasource.lastPosition = {
+        'timestamp' : 0,
+        'coords' : {'accuracy' : 5}
+      };
+      newPosition = {
+        'timestamp' : 0,
+        'coords' : {'accuracy' : 1}
+      };
+      var result = this.datasource.isPositionDataUseful(newPosition);
+      ok(result);
+    });
+
+    test("New position data is useful", function() {
+      this.datasource.lastPosition = {
+        'timestamp' : 0,
+        'coords' : {'accuracy' : 5}
+      };
+      newPosition = {
+        'timestamp' : 1000000,
+        'coords' : {'accuracy' : 10}
+      };
+      var result = this.datasource.isPositionDataUseful(newPosition);
+      ok(result);
+    });
+
+    test("Position not updated if data isn't new and is less accurate", function() {
+      this.datasource.lastPosition = {
+        'timestamp' : 0,
+        'coords' : {'accuracy' : 5}
+      };
+      newPosition = {
+        'timestamp' : 0,
+        'coords' : {'accuracy' : 10}
+      };
+
+      var result = this.datasource.isPositionDataUseful(newPosition);
+      equal(false, result);
+    });
+
+    test("Position not updated if request is already open", function() {
+      this.datasource.waitingForData = true;
+      var result = this.datasource.isPositionDataUseful(null);
+      equal(false, result);
+    });
+
+  });
+  </script>
+
+</head>
+<body>
+  <h1 id="qunit-header">JavaScript tests for basic index scripts</h1>
+ <h2 id="qunit-banner"></h2>
+ <div id="qunit-testrunner-toolbar"></div>
+ <h2 id="qunit-userAgent"></h2>
+ <ol id="qunit-tests"></ol>
+ <div id="qunit-fixture"></div>
+</body>
+</html>
+
