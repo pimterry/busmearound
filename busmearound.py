@@ -2,6 +2,8 @@ from flask import Flask, render_template
 from datetime import datetime
 import json, requests, os, time
 from geopy import distance
+from buses import BusStops
+from threading import Thread
 
 app = Flask(__name__)
 
@@ -10,62 +12,43 @@ def index():
   # TODO: Do this properly silly (problems with js templating in the the template otherwise)
   return open('templates/index.html', 'r').read()
 
-def getTransportNear(start, range_in_meters=500, target=None):
-  for stop in bus_stops:
-    pass
-
+busStops = BusStops()
+busStops._refresh()
+Thread(target=busStops._stream_predictions).start()
 
 @app.route('/buses-near/<lat>/<long>')
 def bus_data_near(lat, long, range_in_meters=1000):
   """
   Takes a latitude and a longitude and tells you when and where the next buses are arriving
-  in the surrounding 100 meters.
+  in the surrounding 1000 meters.
   """
-  interesting_fields = ['StopPointName',
-                        'StopID',
-                        'StopPointIndicator',
-                        'Latitude',
-                        'Longitude',
-                        'LineName',
-                        'DestinationText',
-                        'VehicleID',
-                        'EstimatedTime']
+  position = (lat, long)
+  now = time.time() - 30 # -30 to add a little slack, so buses right now right next
+                         # to you don't get skipped.
 
-  params = { 'Circle' : '%s,%s,%s' % (lat, long, range_in_meters),
-             'ReturnList' : ','.join(interesting_fields) }
-
-  r = requests.get('http://countdown.api.tfl.gov.uk/interfaces/ura/instant_V1',
-                   params = params)
-
-  data = [json.loads(line) for line in r.text.split('\n')]
-  bus_data = [line for line in data if line[0] == 1]
-
-  buses = {}
   stops = {}
+  buses = {}
 
-  now = time.time() - 60
+  relevant_stops = busStops.near(position, range_in_meters)
+  for stop in relevant_stops:
+    distance = distance_between(position, stop.location)
 
-  for msg_type, stop_name, stop_id, stop_indicator, stop_lat, stop_long, bus_name, destination, bus_id, time_millis in bus_data:
-    distance = distance_between((lat, long), (stop_lat, stop_long))
+    if stop.stop_id not in stops:
+      stops[stop.stop_id] = { 'name' : stop.name,
+                              'lat' : stop.location[0],
+                              'long' : stop.location[1],
+                              'distance' : distance }
 
-    if stop_id not in stops:
-      if stop_indicator:
-        stop_name = "%s (Stop %s)" % (stop_name, stop_indicator)
-      stops[stop_id] = { 'name' : stop_name,
-                         'lat' : stop_lat,
-                         'long' : stop_long,
-                         'distance' : distance }
+    for bus, arrival_time in stop.buses.items():
+      if (arrival_time/1000 - distance / 2) < now:
+        continue
 
-    # Skip any stops you probably couldn't get to in time
-    if (time_millis/1000 - distance/2) < now:
-      continue
-
-    if bus_id not in buses or distance < stops[buses[bus_id]['stop_id']]['distance']:
-      buses[bus_id] = { 'name' : bus_name,
-                       'destination' : destination,
-                       'time_millis' : time_millis,
-                       'stop_id' : stop_id,
-                       'distance_to_stop' : distance }
+      if bus.bus_id not in buses:
+        buses[bus.bus_id] = { 'name' : bus.name,
+                              'destination' : bus.destination,
+                              'time_millis' : arrival_time,
+                              'stop_id' : stop.stop_id,
+                              'distance_to_stop' : distance }
 
   return json.dumps({ 'buses' : sorted(buses.values(), key = lambda b : b['time_millis']),
                       'stops' : stops})

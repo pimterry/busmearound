@@ -1,6 +1,7 @@
 from geopy import distance
 from collections import defaultdict
 import requests, json, os, time, bisect, math
+from requests.auth import HTTPDigestAuth
 
 distance.distance = distance.GreatCircleDistance
 
@@ -13,19 +14,26 @@ STREAM_PASSWORD = os.getenv('tfl-bus-stream-password')
 RELEVANT_BUS_STOP_TYPES = ['STBR', 'STBC', 'STZZ', 'STBS', 'STSS']
 
 class BusStop(object):
-  __slots__ = 'stop_id', 'name', 'indicator', 'location'
+  __slots__ = 'stop_id', 'name', 'indicator', 'location', 'buses'
 
   def __init__(self, stop_id, name, indicator, location):
     self.stop_id = stop_id
     self.name = name
     self.indicator = indicator
     self.location = location
+    self.buses = {}
 
   def distanceTo(location):
     return distance.distance(self.location, location).meters
 
   def __str__(self):
-    return "%s %s (%s)" % (self.name, self.indicator or "-", self.location)
+    if self.indicator:
+      return"%s (Stop %s)" % (self.name, self.indicator)
+    else:
+      return self.name
+
+  def __repr__(self):
+    return "%s-(%s)" % (self.stop_id, self.location)
 
 class DistancedBusStop(object):
   """
@@ -47,6 +55,9 @@ class DistancedBusStop(object):
   def __str__(self):
     return "%s - %s meters away" % (self.bus_stop, self.distance)
 
+  def __repr__(self):
+    return repr("%s-%sm" % (self.bus_stop, self.distance))
+
 class Bus(object):
   __slots__ = 'bus_id', 'name', 'destination'
 
@@ -54,6 +65,15 @@ class Bus(object):
     self.bus_id = bus_id
     self.name = name
     self.destination = destination
+
+  def __hash__(self):
+    return self.bus_id
+
+  def __str__(self):
+    return "%s towards %s" % (self.name, self.destination)
+
+  def __repr__(self):
+    return "%s-%s-%s" % (self.bus_id, self.name, self.destination)
 
 class BusStops(object):
   grid_width = grid_height = 50.0
@@ -74,12 +94,12 @@ class BusStops(object):
   bus_prediction_fields = ['StopID',
                            'LineName',
                            'DestinationText',
-                           'Destination',
                            'VehicleID',
-                           'EstimatedTime']
+                           'EstimatedTime',
+                           'ExpireTime']
 
   def __init__(self):
-    self._reset_stop_data()
+    self._reset_data()
 
   def _refresh(self):
     params = { 'ReturnList' : ','.join(self.bus_stop_fields),
@@ -93,17 +113,16 @@ class BusStops(object):
     stops_data = [json.loads(line) for line in r.text.split('\n')]
     URA_header = stops_data.pop(0)
 
-    self._reset_stop_data()
+    self._reset_data()
 
     for msg_type, name, stop_id, stop_type, indicator, lat, long in stops_data:
       self._process_stop_data(name, stop_id, stop_type, indicator, lat, long)
 
   def _stream_predictions(self):
-    params = { 'ReturnList' : ','.join(self.bus_prediction_fields),
-               'Stream' : 'True' }
+    params = { 'ReturnList' : ','.join(self.bus_prediction_fields) }
     r = requests.get(STREAM_BUS_FEED,
                      params = params,
-                     auth = (STREAM_USERNAME, STREAM_PASSWORD))
+                     auth = HTTPDigestAuth(STREAM_USERNAME, STREAM_PASSWORD))
 
     if r.status_code != 200:
       raise Exception("Could not get bus prediction stream: %s" % r.text)
@@ -124,15 +143,18 @@ class BusStops(object):
         continue
 
       if expiry_time == 0:
-        del self.stops[bus_id]
+        try:
+          del self.stops[stop_id].buses[self.buses[bus_id]]
+        except KeyError, e:
+          pass
 
       else:
-        self._process_prediction_data(self, stop_id, bus_name, destination, bus_id, arrival_time)
+        self._process_prediction_data(stop_id, bus_name, destination, bus_id, arrival_time)
 
-
-  def _reset_stop_data(self):
+  def _reset_data(self):
     self.stop_grid = defaultdict(lambda : defaultdict(list))
     self.stops = {}
+    self.buses = {}
 
   def _process_stop_data(self, name, stop_id, stop_type, indicator, lat, long):
     if stop_type not in RELEVANT_BUS_STOP_TYPES:
@@ -145,10 +167,22 @@ class BusStops(object):
     self.get_cell(location).append(stop)
 
   def _process_prediction_data(self, stop_id, bus_name, destination, bus_id, time_millis):
+    """
+    New bus predirection for bus with the given id.
+    """
     if stop_id not in self.stops:
       return
 
-    self.stops[stop_id].buses = []
+    if bus_id not in self.buses:
+      self.buses[bus_id] = Bus(bus_id, bus_name, destination)
+    else:
+      # Make sure the bus metadata is still valid, since it might've changed 
+      # (I think, spec is not too clear on this)
+      self.buses[bus_id].name = bus_name
+      self.buses[bus_id].destination = destination
+
+    stop = self.stops[stop_id]
+    stop.buses[self.buses[bus_id]] = time_millis
 
   def get_cell(self, (lat, long)):
     """
