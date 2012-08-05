@@ -11,6 +11,8 @@ STREAM_BUS_FEED = 'http://countdown.api.tfl.gov.uk/interfaces/ura/stream_V1'
 STREAM_USERNAME = os.getenv('tfl-bus-stream-username')
 STREAM_PASSWORD = os.getenv('tfl-bus-stream-password')
 
+BUS_STOP_RESPONSE_TYPE = 0
+PREDICTION_RESPONSE_TYPE = 1
 RELEVANT_BUS_STOP_TYPES = ['STBR', 'STBC', 'STZZ', 'STBS', 'STSS']
 
 class BusStop(object):
@@ -26,9 +28,18 @@ class BusStop(object):
   def distanceTo(location):
     return distance.distance(self.location, location).meters
 
+  def __eq__(self, other):
+    return (self.stop_id == other.stop_id and
+            self.name == other.name and
+            self.indicator == other.indicator and
+            self.location == other.location)
+
+  def __neq__(self, other):
+    return not self.__eq__(other)
+
   def __str__(self):
     if self.indicator:
-      return"%s (Stop %s)" % (self.name, self.indicator)
+      return "%s (Stop %s)" % (self.name, self.indicator)
     else:
       return self.name
 
@@ -45,6 +56,12 @@ class DistancedBusStop(object):
   def __init__(self, bus_stop, stop_distance):
     self.distance = stop_distance
     self.bus_stop = bus_stop
+
+  def __eq__(self, other):
+    return self.bus_stop == other.bus_stop
+
+  def __neq__(self, other):
+    return not self.__eq__(other)
 
   def __getattr__(self, name):
     return getattr(self.bus_stop, name)
@@ -68,6 +85,14 @@ class Bus(object):
 
   def __hash__(self):
     return self.bus_id
+
+  def __eq__(self, other):
+    return (self.bus_id == other.bus_id and
+            self.name == other.name and
+            self.destination == other.destination)
+
+  def __neq__(self, other):
+    return not self.__eq__(other)
 
   def __str__(self):
     return "%s towards %s" % (self.name, self.destination)
@@ -101,7 +126,7 @@ class BusStops(object):
   def __init__(self):
     self._reset_data()
 
-  def _refresh(self):
+  def _refresh_stops(self):
     params = { 'ReturnList' : ','.join(self.bus_stop_fields),
                'StopAlso' : 'True' }
 
@@ -110,8 +135,8 @@ class BusStops(object):
     if r.status_code != 200:
       raise Exception("Could not load bus data: %s" % r.text)
 
-    stops_data = [json.loads(line) for line in r.text.split('\n')]
-    URA_header = stops_data.pop(0)
+    data = [json.loads(line) for line in r.text.split('\n')]
+    stops_data = [d for d in data if d[0] == BUS_STOP_RESPONSE_TYPE]
 
     self._reset_data()
 
@@ -134,7 +159,7 @@ class BusStops(object):
       line_data = json.loads(line)
 
       # Only look at prediction results (ignore version rows, etc)
-      if line_data.pop(0) != 1:
+      if line_data.pop(0) != PREDICTION_RESPONSE_TYPE:
         continue
 
       stop_id, bus_name, destination, bus_id, arrival_time, expiry_time = line_data
@@ -176,7 +201,7 @@ class BusStops(object):
     if bus_id not in self.buses:
       self.buses[bus_id] = Bus(bus_id, bus_name, destination)
     else:
-      # Make sure the bus metadata is still valid, since it might've changed 
+      # Make sure the bus metadata is still valid, since it might've changed
       # (I think, spec is not too clear on this)
       self.buses[bus_id].name = bus_name
       self.buses[bus_id].destination = destination
@@ -185,35 +210,11 @@ class BusStops(object):
     stop.buses[self.buses[bus_id]] = time_millis
 
   def get_cell(self, (lat, long)):
-    """
-    Gets the relevant grid cell for a given latitude and longitude.
-
-    >>> b = BusStops()
-    >>> b.get_cell((51.5, -0.1))
-    []
-    >>> b.get_cell((51.5, -0.1)).append(2)
-    >>> b.get_cell((51.5, -0.1))
-    [2]
-    >>> b.get_cell((51.5, -0.2))
-    []
-    >>> b.get_cell((51.6, -0.1))
-    []
-    """
     cell_lat = (lat - self.min_lat) // self.cell_width
     cell_long = (long - self.min_long) // self.cell_height
     return self.stop_grid[cell_lat][cell_long]
 
   def _get_stops_near(self, location, distance_in_meters):
-    """
-    >>> b = BusStops()
-    >>> b.get_cell((51.1, -0.1)).append(1)
-    >>> b.get_cell((51.1, -0.1)).append(2)
-    >>> b.get_cell((51.5, -0.1)).append(3)
-    >>> b.get_cell((51.1, -0.11)).append(4)
-    >>> b.get_cell((51.1, -0.101)).append(5)
-    >>> b._get_stops_near((51.1, -0.1), 50)
-    [1, 2, 5]
-    """
     relevant_stops = []
 
     for x in self.stop_grid:
@@ -231,9 +232,6 @@ class BusStops(object):
 
   def near(self, location, distance_in_meters=500):
     return LocalBusStops(self._get_stops_near(location, distance_in_meters), location, distance_in_meters)
-
-  def getBuses(self):
-    pass
 
   def __getitem__(self, key):
     return self.stops[key]
@@ -267,13 +265,3 @@ class LocalBusStops(object):
 
   def __len__(self):
     return len(self.sorted_stops)
-
-
-class Buses(object):
-  def near(self, location):
-    pass
-
-
-if __name__ == "__main__":
-  import doctest
-  doctest.testmod(verbose=True)

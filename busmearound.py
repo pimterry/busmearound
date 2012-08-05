@@ -13,7 +13,7 @@ def index():
   return open('templates/index.html', 'r').read()
 
 busStops = BusStops()
-busStops._refresh()
+busStops._refresh_stops()
 Thread(target=busStops._stream_predictions).start()
 
 @app.route('/buses-near/<lat>/<long>')
