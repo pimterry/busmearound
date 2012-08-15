@@ -34,7 +34,7 @@ class BusStopsTest(unittest.TestCase):
     bus_stops._refresh_stops()
 
     bus1 = Bus(10, "Bus", "London")
-    bus1_arrival_time = time.time() * 1000
+    bus1_arrival_time = 1234567890 * 1000
     bus2 = Bus(11, "Bus 2", "London")
     bus2_arrival_time = bus1_arrival_time + 60000
 
