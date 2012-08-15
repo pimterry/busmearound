@@ -12,10 +12,6 @@ def index():
   # TODO: Do this properly silly (problems with js templating in the the template otherwise)
   return open('sherpa/templates/index.html', 'r').read()
 
-busStops = BusStops()
-busStops._refresh_stops()
-Thread(target=busStops._stream_predictions).start()
-
 @app.route('/buses-near/<lat>/<long>')
 def bus_data_near(lat, long, range_in_meters=1000):
   """
@@ -57,6 +53,10 @@ def distance_between(start, end):
   return distance.distance(start, end).meters
 
 if __name__ == "__main__":
+  busStops = BusStops()
+  busStops._refresh_stops()
+  Thread(target=busStops._stream_predictions).start()
+
   app.debug = True
   port = int(os.environ.get('PORT', 5000))
   app.run(host='0.0.0.0', port=port)
