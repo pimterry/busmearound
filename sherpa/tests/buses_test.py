@@ -1,6 +1,6 @@
 import unittest
-from buses import *
-from bus_stream_mock import BusStreamMock
+from ..buses import *
+from .bus_stream_mock import BusStreamMock
 
 class BusStopsTest(unittest.TestCase):
 

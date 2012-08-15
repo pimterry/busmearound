@@ -4,7 +4,7 @@ import json, time
 class BusStreamMock(object):
 
   def __init__(self):
-    self.requests_patch = patch('buses.requests')
+    self.requests_patch = patch('sherpa.buses.requests')
     self.requests = self.requests_patch.__enter__()
     self.requests.get = self._stubbed_get
     self.clear()

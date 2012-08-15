@@ -1,1 +1,1 @@
-web: python busmearound.py
+web: python sherpa/busmearound.py

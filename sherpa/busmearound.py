@@ -10,7 +10,7 @@ app = Flask(__name__)
 @app.route('/')
 def index():
   # TODO: Do this properly silly (problems with js templating in the the template otherwise)
-  return open('templates/index.html', 'r').read()
+  return open('sherpa/templates/index.html', 'r').read()
 
 busStops = BusStops()
 busStops._refresh_stops()
