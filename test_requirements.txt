@@ -1,4 +1,4 @@
 Flask==0.8
-Requests==0.13.1
+Requests==2.20.0
 Geopy==0.94.2
 Mock==1.0b1
